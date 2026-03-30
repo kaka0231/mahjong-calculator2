@@ -217,13 +217,16 @@ export default function App() {
               <div key={idx} className="space-y-2">
                 <label className="text-sm font-medium text-gray-600 truncate block">{player.name}</label>
                 <input
-                  type="number"
-                  inputMode="numeric"
+                  type="text"
                   value={currentScores[idx]}
                   onChange={(e) => {
-                    const next = [...currentScores];
-                    next[idx] = e.target.value;
-                    setCurrentScores(next);
+                    const val = e.target.value;
+                    // Allow empty, single minus, or valid number
+                    if (val === '' || val === '-' || !isNaN(Number(val))) {
+                      const next = [...currentScores];
+                      next[idx] = val;
+                      setCurrentScores(next);
+                    }
                   }}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none transition-all text-lg font-semibold text-center"
                   placeholder="0"
@@ -268,8 +271,9 @@ export default function App() {
                     exit={{ opacity: 0, x: -50 }}
                     className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 group"
                   >
-                    <div className="flex-shrink-0 w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-xs font-bold text-gray-400">
-                      #{rounds.length - rIdx}
+                    <div className="flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 bg-gray-50 rounded-full">
+                      <span className="text-[10px] font-bold text-gray-400">#{rounds.length - rIdx}</span>
+                      <span className="text-[8px] text-gray-400">{new Date(round.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="grid grid-cols-4 flex-grow gap-2">
                       {round.scores.map((score, sIdx) => (
