@@ -1,0 +1,5 @@
+{
+  "name": "Mahjong Score Tracker",
+  "description": "A simple tool to record and track Mahjong scores for four players, ensuring every round balances to zero.",
+  "requestFramePermissions": []
+}
