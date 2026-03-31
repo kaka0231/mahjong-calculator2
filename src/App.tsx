@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight, Languages } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Round {
@@ -12,7 +12,63 @@ interface Player {
   name: string;
 }
 
+type Language = 'zh' | 'en';
+
+const translations = {
+  zh: {
+    title: '麻雀計分板',
+    subtitle: '記錄每一局的輸贏，保證結算平衡',
+    editNames: '修改玩家名',
+    cancelEdit: '取消修改',
+    reset: '重設',
+    resetConfirm: '確定要清除所有紀錄嗎？',
+    saveNames: '儲存名稱',
+    player: '玩家',
+    unnamed: '未命名',
+    addRound: '新增局數',
+    balanceZero: '總和為 0 (平衡)',
+    sum: '總和',
+    recordRound: '記錄此局',
+    history: '歷史紀錄',
+    noHistory: '尚無紀錄，開始第一局吧！',
+    finalSettlement: '最後結算',
+    chipValue: '每個籌碼價值:',
+    settlementAmount: '結算金額',
+    paymentAdvice: '支付建議',
+    noPayment: '目前無須支付',
+    footer: '麻雀計分板 © 2026 • 保持平衡，公平競技',
+  },
+  en: {
+    title: 'Mahjong Scoreboard',
+    subtitle: 'Track every round and ensure balance.',
+    editNames: 'Edit Names',
+    cancelEdit: 'Cancel',
+    reset: 'Reset',
+    resetConfirm: 'Are you sure you want to clear all records?',
+    saveNames: 'Save Names',
+    player: 'Player',
+    unnamed: 'Unnamed',
+    addRound: 'Add Round',
+    balanceZero: 'Sum is 0 (Balanced)',
+    sum: 'Sum',
+    recordRound: 'Record Round',
+    history: 'History',
+    noHistory: 'No records yet. Start your first round!',
+    finalSettlement: 'Final Settlement',
+    chipValue: 'Value per chip:',
+    settlementAmount: 'Settlement Amount',
+    paymentAdvice: 'Payment Advice',
+    noPayment: 'No payment needed.',
+    footer: 'Mahjong Scoreboard © 2026 • Stay balanced, play fair.',
+  }
+};
+
 export default function App() {
+  const [lang, setLang] = useState<Language>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('mj-lang') : null;
+    return (saved as Language) || 'zh';
+  });
+
   const [players, setPlayers] = useState<Player[]>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('mj-players') : null;
     return saved ? JSON.parse(saved) : [
@@ -33,6 +89,12 @@ export default function App() {
   const [tempNames, setTempNames] = useState<string[]>(players.map(p => p.name));
   const [chipValue, setChipValue] = useState<number>(1);
 
+  const t = translations[lang];
+
+  useEffect(() => {
+    localStorage.setItem('mj-lang', lang);
+  }, [lang]);
+
   useEffect(() => {
     localStorage.setItem('mj-players', JSON.stringify(players));
   }, [players]);
@@ -46,7 +108,7 @@ export default function App() {
   );
 
   const currentSum = currentScores.reduce((sum, val) => sum + (Number(val) || 0), 0);
-  const isValid = currentSum === 0 && currentScores.every(s => s !== '' && !isNaN(Number(s)));
+  const isValid = currentSum === 0 && currentScores.every(s => s !== '' && s !== '-' && !isNaN(Number(s)));
 
   const handleAddRound = () => {
     if (!isValid) return;
@@ -66,14 +128,14 @@ export default function App() {
   };
 
   const handleReset = () => {
-    if (confirm('確定要清除所有紀錄嗎？')) {
+    if (confirm(t.resetConfirm)) {
       setRounds([]);
       setCurrentScores(['', '', '', '']);
     }
   };
 
   const handleSaveNames = () => {
-    setPlayers(tempNames.map(name => ({ name: name || '未命名' })));
+    setPlayers(tempNames.map(name => ({ name: name || t.unnamed })));
     setIsEditingNames(false);
   };
 
@@ -120,24 +182,31 @@ export default function App() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
               <Trophy className="text-amber-500" />
-              麻雀計分板
+              {t.title}
             </h1>
-            <p className="text-gray-500 mt-1 italic">記錄每一局的輸贏，保證結算平衡</p>
+            <p className="text-gray-500 mt-1 italic">{t.subtitle}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium cursor-pointer"
+            >
+              <Languages size={18} />
+              {lang === 'zh' ? 'English' : '中文'}
+            </button>
             <button
               onClick={() => setIsEditingNames(!isEditingNames)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium cursor-pointer"
             >
               <UserPlus size={18} />
-              {isEditingNames ? '取消修改' : '修改玩家名'}
+              {isEditingNames ? t.cancelEdit : t.editNames}
             </button>
             <button
               onClick={handleReset}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors shadow-sm text-sm font-medium cursor-pointer"
             >
               <RotateCcw size={18} />
-              重設
+              {t.reset}
             </button>
           </div>
         </header>
@@ -154,7 +223,7 @@ export default function App() {
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
                 {tempNames.map((name, idx) => (
                   <div key={idx} className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">玩家 {idx + 1}</label>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t.player} {idx + 1}</label>
                     <input
                       type="text"
                       value={name}
@@ -164,7 +233,7 @@ export default function App() {
                         setTempNames(next);
                       }}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition-all"
-                      placeholder={`玩家 ${idx + 1}`}
+                      placeholder={`${t.player} ${idx + 1}`}
                     />
                   </div>
                 ))}
@@ -173,7 +242,7 @@ export default function App() {
                     onClick={handleSaveNames}
                     className="px-6 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-medium shadow-sm cursor-pointer"
                   >
-                    儲存名稱
+                    {t.saveNames}
                   </button>
                 </div>
               </div>
@@ -198,15 +267,15 @@ export default function App() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <Plus className="text-amber-500" />
-              新增局數
+              {t.addRound}
             </h2>
             <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${currentSum === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
               {currentSum === 0 ? (
-                <>總和為 0 (平衡)</>
+                <>{t.balanceZero}</>
               ) : (
                 <>
                   <AlertCircle size={14} />
-                  總和: {currentSum > 0 ? `+${currentSum}` : currentSum}
+                  {t.sum}: {currentSum > 0 ? `+${currentSum}` : currentSum}
                 </>
               )}
             </div>
@@ -245,7 +314,7 @@ export default function App() {
             }`}
           >
             <Plus size={24} />
-            記錄此局
+            {t.recordRound}
           </button>
         </section>
 
@@ -253,13 +322,13 @@ export default function App() {
         <section className="space-y-4">
           <h2 className="text-lg font-bold flex items-center gap-2 px-2">
             <History className="text-amber-500" />
-            歷史紀錄
+            {t.history}
           </h2>
           
           <div className="space-y-3">
             {rounds.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300 text-gray-400">
-                尚無紀錄，開始第一局吧！
+                {t.noHistory}
               </div>
             ) : (
               <AnimatePresence initial={false}>
@@ -303,10 +372,10 @@ export default function App() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <Coins className="text-amber-500" />
-              最後結算
+              {t.finalSettlement}
             </h2>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">每個籌碼價值:</span>
+              <span className="text-sm text-gray-500">{t.chipValue}</span>
               <input
                 type="number"
                 value={chipValue}
@@ -319,7 +388,7 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Money Summary */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">結算金額</h3>
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">{t.settlementAmount}</h3>
               <div className="space-y-2">
                 {players.map((player, idx) => (
                   <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
@@ -334,11 +403,11 @@ export default function App() {
 
             {/* Payment Instructions */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">支付建議</h3>
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">{t.paymentAdvice}</h3>
               <div className="space-y-2">
                 {payments.length === 0 ? (
                   <div className="p-4 text-center text-gray-400 bg-gray-50 rounded-xl italic">
-                    目前無須支付
+                    {t.noPayment}
                   </div>
                 ) : (
                   payments.map((p, idx) => (
@@ -359,7 +428,7 @@ export default function App() {
       </div>
 
       <footer className="mt-12 text-center text-gray-400 text-xs pb-8">
-        Mahjong Score Tracker &copy; 2026 • 保持平衡，公平競技
+        {t.footer}
       </footer>
     </div>
   );
