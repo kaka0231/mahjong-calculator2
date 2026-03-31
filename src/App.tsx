@@ -36,7 +36,7 @@ const translations = {
     settlementAmount: '結算金額',
     paymentAdvice: '支付建議',
     noPayment: '目前無須支付',
-    footer: '麻雀計分板 © 2026 • 保持平衡，公平競技',
+    footer: '麻雀計分板 © 2026 • 保持平衡，公平競技 • kakit',
   },
   en: {
     title: 'Mahjong Scoreboard',
@@ -59,7 +59,7 @@ const translations = {
     settlementAmount: 'Settlement Amount',
     paymentAdvice: 'Payment Advice',
     noPayment: 'No payment needed.',
-    footer: 'Mahjong Scoreboard © 2026 • Stay balanced, play fair.',
+    footer: 'Mahjong Scoreboard © 2026 • Stay balanced, play fair • kakit',
   }
 };
 
@@ -71,11 +71,16 @@ export default function App() {
 
   const [players, setPlayers] = useState<Player[]>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('mj-players') : null;
-    return saved ? JSON.parse(saved) : [
-      { name: '玩家 1' },
-      { name: '玩家 2' },
-      { name: '玩家 3' },
-      { name: '玩家 4' }
+    if (saved) return JSON.parse(saved);
+    
+    // Default names based on initial language
+    const initialLang = (typeof window !== 'undefined' ? localStorage.getItem('mj-lang') : 'zh') || 'zh';
+    const pLabel = initialLang === 'zh' ? '玩家' : 'Player';
+    return [
+      { name: `${pLabel} 1` },
+      { name: `${pLabel} 2` },
+      { name: `${pLabel} 3` },
+      { name: `${pLabel} 4` }
     ];
   });
 
@@ -90,6 +95,24 @@ export default function App() {
   const [chipValue, setChipValue] = useState<number>(1);
 
   const t = translations[lang];
+
+  // Sync player names when language changes IF they are the default ones
+  useEffect(() => {
+    setPlayers(prev => prev.map((p, i) => {
+      const oldZhDefault = `玩家 ${i + 1}`;
+      const oldEnDefault = `Player ${i + 1}`;
+      const newDefault = `${t.player} ${i + 1}`;
+      
+      if (p.name === oldZhDefault || p.name === oldEnDefault) {
+        return { name: newDefault };
+      }
+      return p;
+    }));
+  }, [lang, t.player]);
+
+  useEffect(() => {
+    setTempNames(players.map(p => p.name));
+  }, [players]);
 
   useEffect(() => {
     localStorage.setItem('mj-lang', lang);

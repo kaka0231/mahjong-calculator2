@@ -1,20 +1,42 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🀄 Mahjong Scoreboard (麻雀計分板)
 
-# Run and deploy your AI Studio app
+A modern, mobile-friendly web application to track Mahjong scores, ensure balance, and calculate final settlements. Built with React, Tailwind CSS, and Lucide icons.
 
-This contains everything you need to run your app locally.
+## 🚀 Features
 
-View your app in AI Studio: https://ai.studio/apps/42e1405d-2d1c-4bf6-8b1c-a9926b918bb1
+- **Real-time Score Tracking**: Easily add scores for 4 players. The app ensures every round balances to zero before saving.
+- **Round History**: View a detailed history of every round with timestamps and the ability to delete specific rounds.
+- **Final Settlement Calculation**:
+  - Set a custom value per chip (e.g., $1, $5, $10).
+  - Automatically calculate the total profit/loss for each player.
+  - **Payment Advice**: Smart algorithm that tells you exactly who should pay whom to settle the game with the fewest transactions.
+- **Multi-language Support**: Toggle between **Traditional Chinese** and **English** with a single click.
+- **Data Persistence**: All your scores, player names, and settings are saved automatically in your browser's `localStorage`. No data is lost even if you refresh or close the tab.
+- **Mobile Optimized**: Specially designed for iPhone users to easily input negative numbers.
+- **Clean UI**: Minimalist design with smooth animations using `motion`.
 
-## Run Locally
+## 🛠️ Tech Stack
 
-**Prerequisites:**  Node.js
+- **Frontend**: React 18+
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Animations**: Framer Motion (motion/react)
+- **Build Tool**: Vite
 
+## 📖 How to Use
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **Set Player Names**: Click "Edit Names" to customize the names for the 4 players.
+2. **Record a Round**: Enter the scores for each player. Ensure the total sum is 0, then click "Record Round".
+3. **View History**: Scroll down to see all previous rounds and their timestamps.
+4. **Settle the Game**:
+   - Go to the "Final Settlement" section at the bottom.
+   - Enter the "Value per chip".
+   - Follow the "Payment Advice" to settle the money.
+5. **Reset**: Use the "Reset" button to clear all data and start a new game.
+
+## 📦 Deployment
+
+This app is a static React application. You can easily deploy it to platforms like **Vercel**, **Netlify**, or **GitHub Pages**.
+
+---
+Created by **kakit** • 2026
