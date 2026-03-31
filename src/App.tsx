@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight, Languages } from 'lucide-react';
+import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight, Languages, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Round {
@@ -127,6 +127,7 @@ export default function App() {
 
   const [currentScores, setCurrentScores] = useState<string[]>(['', '', '', '']);
   const [isEditingNames, setIsEditingNames] = useState(false);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [tempNames, setTempNames] = useState<string[]>(players.map(p => p.name));
   const [chipValue, setChipValue] = useState<number>(1);
@@ -675,51 +676,73 @@ export default function App() {
 
         {/* History */}
         <section className="space-y-4">
-          <h2 className="text-lg font-bold flex items-center gap-2 px-2">
-            <History className="text-amber-500" />
-            {t.history}
-          </h2>
-          
-          <div className="space-y-3">
-            {rounds.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300 text-gray-400">
-                {t.noHistory}
-              </div>
-            ) : (
-              <AnimatePresence initial={false}>
-                {rounds.map((round, rIdx) => (
-                  <motion.div
-                    key={round.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -50 }}
-                    className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 group"
-                  >
-                    <div className="flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 bg-gray-50 rounded-full">
-                      <span className="text-[10px] font-bold text-gray-400">#{rounds.length - rIdx}</span>
-                      <span className="text-[8px] text-gray-400">{new Date(round.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div className="grid grid-cols-4 flex-grow gap-2">
-                      {round.scores.map((score, sIdx) => (
-                        <div key={sIdx} className="flex flex-col items-center">
-                          <span className="text-[10px] text-gray-400 uppercase font-bold truncate w-full text-center">{players[sIdx].name}</span>
-                          <span className={`font-bold ${score > 0 ? 'text-emerald-600' : score < 0 ? 'text-rose-600' : 'text-gray-400'}`}>
-                            {score > 0 ? `+${score}` : score}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => handleDeleteRound(round.id)}
-                      className="p-2 text-gray-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            )}
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <History className="text-amber-500" />
+              {t.history}
+              <span className="text-xs font-normal text-gray-400 ml-2 bg-gray-100 px-2 py-0.5 rounded-full">
+                {rounds.length}
+              </span>
+            </h2>
+            <button
+              onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+            >
+              {isHistoryExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </button>
           </div>
+          
+          <AnimatePresence>
+            {isHistoryExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                  {rounds.length === 0 ? (
+                    <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300 text-gray-400">
+                      {t.noHistory}
+                    </div>
+                  ) : (
+                    <AnimatePresence initial={false}>
+                      {rounds.map((round, rIdx) => (
+                        <motion.div
+                          key={round.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: -50 }}
+                          className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 group"
+                        >
+                          <div className="flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 bg-gray-50 rounded-full">
+                            <span className="text-[10px] font-bold text-gray-400">#{rounds.length - rIdx}</span>
+                            <span className="text-[8px] text-gray-400">{new Date(round.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <div className="grid grid-cols-4 flex-grow gap-2">
+                            {round.scores.map((score, sIdx) => (
+                              <div key={sIdx} className="flex flex-col items-center">
+                                <span className="text-[10px] text-gray-400 uppercase font-bold truncate w-full text-center">{players[sIdx].name}</span>
+                                <span className={`font-bold ${score > 0 ? 'text-emerald-600' : score < 0 ? 'text-rose-600' : 'text-gray-400'}`}>
+                                  {score > 0 ? `+${score}` : score}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteRound(round.id)}
+                            className="p-2 text-gray-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
 
         {/* Final Settlement Section */}
