@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight, Languages, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight, Languages, ChevronDown, ChevronUp, Share2, Edit2, Check, QrCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Round {
@@ -39,7 +39,7 @@ const translations = {
     noPayment: '目前無須支付',
     footer: '麻雀計分板 © 2026 • 保持平衡，公平競技 • kakit',
     modeManual: '手動輸入',
-    modeRedZhong: '紅中模式',
+    modeRedZhong: '紅中模式(測試中)',
     winner: '贏家 / 槓家',
     action: '動作',
     selfDrawn: '自摸 (+2)',
@@ -53,6 +53,16 @@ const translations = {
     discarder: '放槓者',
     confirmRecord: '確認記錄',
     kongBloom: '槓上開花 (點槓者全包 x3)',
+    editRound: '編輯局數',
+    saveChanges: '儲存修改',
+    balanceAlert: '分數總和必須為 0 以保持平衡！',
+    shareGame: '分享數據',
+    shareConfirm: '檢測到分享的記分數據！是否要匯入這些數據並覆蓋目前的紀錄？',
+    shareSuccess: '連結已複製到剪貼簿！',
+    qrCodeTip: '讓其他玩家掃描 QR Code 或複製連結，即可一齊查看及試用數據！',
+    loadShare: '匯入數據',
+    ignoreShare: '忽略',
+    loadingSharedData: '載入分享數據中...',
   },
   en: {
     title: 'Mahjong Scoreboard',
@@ -77,7 +87,7 @@ const translations = {
     noPayment: 'No payment needed.',
     footer: 'Mahjong Scoreboard © 2026 • Stay balanced, play fair • kakit',
     modeManual: 'Manual',
-    modeRedZhong: 'Red Zhong',
+    modeRedZhong: 'Red Zhong (Beta)',
     winner: 'Winner / Konger',
     action: 'Action',
     selfDrawn: 'Self-Drawn (+2)',
@@ -91,6 +101,16 @@ const translations = {
     discarder: 'Discarder',
     confirmRecord: 'Confirm',
     kongBloom: 'Kong Bloom (Discarder pays all x3)',
+    editRound: 'Edit Round',
+    saveChanges: 'Save Changes',
+    balanceAlert: 'The sum of scores must be 0 to keep balance!',
+    shareGame: 'Share Game',
+    shareConfirm: 'Shared game data detected! Do you want to import this data and overwrite your current records?',
+    shareSuccess: 'Link copied to clipboard!',
+    qrCodeTip: 'Scan the QR Code or copy the link to share and preview scores!',
+    loadShare: 'Import',
+    ignoreShare: 'Ignore',
+    loadingSharedData: 'Loading shared data...',
   }
 };
 
@@ -130,7 +150,20 @@ export default function App() {
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [tempNames, setTempNames] = useState<string[]>(players.map(p => p.name));
-  const [chipValue, setChipValue] = useState<number>(1);
+  const [chipValue, setChipValue] = useState<number>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('mj-chip-value') : null;
+    return saved ? Number(saved) : 1;
+  });
+
+  // History Editing State
+  const [editingRound, setEditingRound] = useState<Round | null>(null);
+  const [editingScores, setEditingScores] = useState<string[]>(['', '', '', '']);
+
+  // Sharing State
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [pendingImport, setPendingImport] = useState<any>(null);
 
   // Red Zhong Calculator State
   const [rzWinner, setRzWinner] = useState<number>(0);
@@ -176,6 +209,27 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mj-rounds', JSON.stringify(rounds));
   }, [rounds]);
+
+  useEffect(() => {
+    localStorage.setItem('mj-chip-value', String(chipValue));
+  }, [chipValue]);
+
+  // Handle Shared URL data
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareData = urlParams.get('share');
+    if (shareData) {
+      try {
+        const decodedJson = decodeURIComponent(escape(atob(shareData)));
+        const importedState = JSON.parse(decodedJson);
+        if (importedState.players && importedState.rounds) {
+          setPendingImport(importedState);
+        }
+      } catch (e) {
+        console.error('Failed to parse shared state:', e);
+      }
+    }
+  }, []);
 
   const totalScores = players.map((_, idx) => 
     rounds.reduce((sum, round) => sum + round.scores[idx], 0)
@@ -272,6 +326,35 @@ export default function App() {
     setRounds(rounds.filter(r => r.id !== id));
   };
 
+  const handleStartEditRound = (round: Round) => {
+    setEditingRound(round);
+    setEditingScores(round.scores.map(String));
+  };
+
+  const editingSum = editingScores.reduce((sum, val) => sum + (Number(val) || 0), 0);
+  const isEditingValid = editingSum === 0 && editingScores.every(s => s !== '' && s !== '-' && !isNaN(Number(s)));
+
+  const handleSaveEditRound = () => {
+    if (!isEditingValid || !editingRound) return;
+    setRounds(rounds.map(r => r.id === editingRound.id ? { ...r, scores: editingScores.map(Number) } : r));
+    setEditingRound(null);
+  };
+
+  const handleShareGame = () => {
+    const stateToShare = {
+      players,
+      rounds,
+      chipValue,
+      mode
+    };
+    const jsonStr = JSON.stringify(stateToShare);
+    const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    const url = `${window.location.origin}${window.location.pathname}?share=${b64}`;
+    setShareUrl(url);
+    setCopied(false);
+    setShowShareModal(true);
+  };
+
   const handleReset = () => {
     setRounds([]);
     setCurrentScores(['', '', '', '']);
@@ -332,6 +415,13 @@ export default function App() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
+              onClick={handleShareGame}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors shadow-sm text-sm font-medium cursor-pointer"
+            >
+              <Share2 size={18} />
+              {t.shareGame}
+            </button>
+            <button
               onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium cursor-pointer"
             >
@@ -382,6 +472,191 @@ export default function App() {
                     className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all"
                   >
                     {t.reset}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Share Modal */}
+        <AnimatePresence>
+          {showShareModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-amber-500">
+                    <Share2 size={24} />
+                    <h3 className="text-lg font-bold">{t.shareGame}</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowShareModal(false)}
+                    className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 hover:bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <p className="text-gray-500 text-xs">{t.qrCodeTip}</p>
+
+                {/* QR Code Container */}
+                <div className="flex flex-col items-center justify-center py-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}`}
+                    alt="Share QR Code"
+                    className="w-48 h-48 bg-white p-2 rounded-xl shadow-sm border border-gray-100"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="text-[10px] text-gray-400 mt-2">Scan with camera to open</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={shareUrl}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="flex-grow px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none select-all text-gray-600 truncate font-mono"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(shareUrl);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-sm flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                    >
+                      {copied ? <Check size={16} /> : null}
+                      {copied ? '已複製' : '複製連結'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Pending Import Modal */}
+        <AnimatePresence>
+          {pendingImport && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full space-y-4"
+              >
+                <div className="flex items-center gap-3 text-amber-500">
+                  <Share2 size={24} />
+                  <h3 className="text-lg font-bold">{t.shareGame}</h3>
+                </div>
+                <p className="text-gray-600 text-sm">{t.shareConfirm}</p>
+                
+                {/* Preview of the imported data */}
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs text-gray-500 space-y-1">
+                  <div><strong>{t.player}:</strong> {pendingImport.players.map((p: Player) => p.name).join(', ')}</div>
+                  <div><strong>{t.history}:</strong> {pendingImport.rounds.length} {lang === 'zh' ? '局紀錄' : 'rounds'}</div>
+                  {pendingImport.chipValue && <div><strong>{t.chipValue}</strong> ${pendingImport.chipValue}</div>}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setPendingImport(null);
+                      window.history.replaceState({}, document.title, window.location.pathname);
+                    }}
+                    className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 transition-all text-sm cursor-pointer"
+                  >
+                    {t.ignoreShare}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPlayers(pendingImport.players);
+                      setRounds(pendingImport.rounds);
+                      if (pendingImport.chipValue) setChipValue(pendingImport.chipValue);
+                      if (pendingImport.mode) setMode(pendingImport.mode);
+                      setPendingImport(null);
+                      window.history.replaceState({}, document.title, window.location.pathname);
+                    }}
+                    className="flex-1 py-2 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 transition-all text-sm cursor-pointer"
+                  >
+                    {t.loadShare}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Edit Round Modal */}
+        <AnimatePresence>
+          {editingRound && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full space-y-4"
+              >
+                <div className="flex items-center gap-3 text-amber-500">
+                  <Edit2 size={24} />
+                  <h3 className="text-lg font-bold">
+                    {t.editRound} (#{rounds.length - rounds.findIndex(r => r.id === editingRound.id)})
+                  </h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {players.map((player, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-xs font-bold text-gray-400 block truncate">{player.name}</label>
+                        <input
+                          type="text"
+                          value={editingScores[idx]}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || val === '-' || !isNaN(Number(val))) {
+                              const next = [...editingScores];
+                              next[idx] = val;
+                              setEditingScores(next);
+                            }
+                          }}
+                          placeholder="0"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl font-bold text-center text-lg outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between px-1">
+                    <span className={`text-xs font-semibold ${isEditingValid ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {isEditingValid ? t.balanceZero : t.balanceAlert}
+                    </span>
+                    <span className={`text-xs font-mono font-bold ${editingSum === 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {t.sum}: {editingSum > 0 ? `+${editingSum}` : editingSum}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setEditingRound(null)}
+                    className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 transition-all text-sm cursor-pointer"
+                  >
+                    {t.cancelEdit}
+                  </button>
+                  <button
+                    onClick={handleSaveEditRound}
+                    disabled={!isEditingValid}
+                    className="flex-1 py-2 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {t.saveChanges}
                   </button>
                 </div>
               </motion.div>
@@ -729,12 +1004,22 @@ export default function App() {
                               </div>
                             ))}
                           </div>
-                          <button
-                            onClick={() => handleDeleteRound(round.id)}
-                            className="p-2 text-gray-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleStartEditRound(round)}
+                              className="p-2 text-gray-400 hover:text-amber-500 transition-colors cursor-pointer"
+                              title={t.editRound}
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRound(round.id)}
+                              className="p-2 text-gray-400 hover:text-rose-500 transition-colors cursor-pointer"
+                              title={t.reset}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         </motion.div>
                       ))}
                     </AnimatePresence>
