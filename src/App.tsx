@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight, Languages, ChevronDown, ChevronUp, Share2, Edit2, Check, QrCode } from 'lucide-react';
+import { Plus, Trash2, RotateCcw, UserPlus, History, Trophy, AlertCircle, Coins, ArrowRight, Languages, ChevronDown, ChevronUp, Share2, Edit2, Check, QrCode, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 interface Round {
   id: string;
@@ -63,6 +64,14 @@ const translations = {
     loadShare: '匯入數據',
     ignoreShare: '忽略',
     loadingSharedData: '載入分享數據中...',
+    deleteRoundConfirm: '確定要刪除此局紀錄嗎？這個操作無法復原。',
+    report: '數據報告',
+    trendChart: '玩家盈虧走勢 (折線圖)',
+    roundTimeline: '每局流水線',
+    noDataToAnalyze: '尚無數據，請先新增紀錄！',
+    cumulativeScore: '累計盈虧 (籌碼)',
+    roundShort: '局',
+    netValue: '淨盈虧',
   },
   en: {
     title: 'Mahjong Scoreboard',
@@ -111,6 +120,14 @@ const translations = {
     loadShare: 'Import',
     ignoreShare: 'Ignore',
     loadingSharedData: 'Loading shared data...',
+    deleteRoundConfirm: 'Are you sure you want to delete this round record? This action cannot be undone.',
+    report: 'Data Report',
+    trendChart: 'P&L Trend (Line Chart)',
+    roundTimeline: 'Round Flow',
+    noDataToAnalyze: 'No data yet, please add records first!',
+    cumulativeScore: 'Cumulative Score (Chips)',
+    roundShort: 'R',
+    netValue: 'Net P&L',
   }
 };
 
@@ -152,12 +169,13 @@ export default function App() {
   const [tempNames, setTempNames] = useState<string[]>(players.map(p => p.name));
   const [chipValue, setChipValue] = useState<number>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('mj-chip-value') : null;
-    return saved ? Number(saved) : 1;
+    return saved ? Number(saved) : 5;
   });
 
   // History Editing State
   const [editingRound, setEditingRound] = useState<Round | null>(null);
   const [editingScores, setEditingScores] = useState<string[]>(['', '', '', '']);
+  const [roundToDelete, setRoundToDelete] = useState<Round | null>(null);
 
   // Sharing State
   const [showShareModal, setShowShareModal] = useState(false);
@@ -324,6 +342,7 @@ export default function App() {
 
   const handleDeleteRound = (id: string) => {
     setRounds(rounds.filter(r => r.id !== id));
+    setRoundToDelete(null);
   };
 
   const handleStartEditRound = (round: Round) => {
@@ -401,6 +420,35 @@ export default function App() {
 
   const payments = calculatePayments();
 
+  const getChartData = () => {
+    const initialPoint: any = {
+      name: lang === 'zh' ? '開始' : 'Start',
+    };
+    players.forEach((player) => {
+      initialPoint[player.name] = 0;
+    });
+
+    const data = [initialPoint];
+    const cumulative = players.map(() => 0);
+
+    for (let i = rounds.length - 1; i >= 0; i--) {
+      const round = rounds[i];
+      const roundNumber = rounds.length - i;
+      const dataPoint: any = {
+        name: `${t.roundShort}${roundNumber}`,
+      };
+      players.forEach((player, pIdx) => {
+        cumulative[pIdx] += round.scores[pIdx];
+        dataPoint[player.name] = cumulative[pIdx];
+      });
+      data.push(dataPoint);
+    }
+    return data;
+  };
+
+  const chartData = getChartData();
+  const PLAYER_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#212529] font-sans p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -472,6 +520,60 @@ export default function App() {
                     className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all"
                   >
                     {t.reset}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Delete Round Confirmation Modal */}
+        <AnimatePresence>
+          {roundToDelete && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full space-y-4"
+              >
+                <div className="flex items-center gap-3 text-red-600">
+                  <AlertCircle size={24} />
+                  <h3 className="text-lg font-bold">{lang === 'zh' ? '確認刪除' : 'Delete Round'}</h3>
+                </div>
+                <p className="text-gray-600 text-sm">{t.deleteRoundConfirm}</p>
+                
+                {/* Preview of the round to delete */}
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs text-gray-500 space-y-2">
+                  <div className="font-bold text-gray-700">
+                    #{rounds.length - rounds.findIndex(r => r.id === roundToDelete.id)} (
+                    {new Date(roundToDelete.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    )
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    {roundToDelete.scores.map((score, sIdx) => (
+                      <div key={sIdx} className="flex flex-col">
+                        <span className="font-semibold text-gray-400 truncate">{players[sIdx].name}</span>
+                        <span className={`font-bold ${score > 0 ? 'text-emerald-600' : score < 0 ? 'text-rose-600' : 'text-gray-400'}`}>
+                          {score > 0 ? `+${score}` : score}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setRoundToDelete(null)}
+                    className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 transition-all text-sm cursor-pointer"
+                  >
+                    {t.cancelEdit}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteRound(roundToDelete.id)}
+                    className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all text-sm cursor-pointer"
+                  >
+                    {lang === 'zh' ? '刪除' : 'Delete'}
                   </button>
                 </div>
               </motion.div>
@@ -1013,7 +1115,7 @@ export default function App() {
                               <Edit2 size={18} />
                             </button>
                             <button
-                              onClick={() => handleDeleteRound(round.id)}
+                              onClick={() => setRoundToDelete(round)}
                               className="p-2 text-gray-400 hover:text-rose-500 transition-colors cursor-pointer"
                               title={t.reset}
                             >
@@ -1028,6 +1130,110 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+        </section>
+
+        {/* Report / Analytics Section */}
+        <section className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 space-y-6">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <TrendingUp className="text-amber-500" />
+            {t.report}
+          </h2>
+
+          {rounds.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400 italic">
+              {t.noDataToAnalyze}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Line Chart */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">{t.trendChart}</h3>
+                <div className="h-[300px] w-full bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="name" stroke="#9ca3af" fontSize={11} />
+                      <YAxis stroke="#9ca3af" fontSize={11} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        labelClassName="font-bold text-gray-700 text-xs"
+                      />
+                      <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                      {players.map((player, idx) => (
+                        <Line
+                          key={idx}
+                          type="monotone"
+                          dataKey={player.name}
+                          stroke={PLAYER_COLORS[idx % PLAYER_COLORS.length]}
+                          strokeWidth={2.5}
+                          activeDot={{ r: 6 }}
+                          dot={{ r: 3 }}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Round Timeline table */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">{t.roundTimeline}</h3>
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-16">{lang === 'zh' ? '局數' : 'Round'}</th>
+                        {players.map((player, idx) => (
+                          <th key={idx} className="px-4 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}></span>
+                            {player.name}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {(() => {
+                        const cumulativeAtRound: number[][] = [];
+                        const running = players.map(() => 0);
+                        for (let i = rounds.length - 1; i >= 0; i--) {
+                          const round = rounds[i];
+                          round.scores.forEach((score, sIdx) => {
+                            running[sIdx] += score;
+                          });
+                          cumulativeAtRound.push([...running]);
+                        }
+                        cumulativeAtRound.reverse();
+
+                        return rounds.map((round, rIdx) => {
+                          const roundNumber = rounds.length - rIdx;
+                          return (
+                            <tr key={round.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-4 py-3 font-bold text-gray-500 whitespace-nowrap text-xs">#{roundNumber}</td>
+                              {round.scores.map((score, sIdx) => {
+                                const cum = cumulativeAtRound[rIdx][sIdx];
+                                return (
+                                  <td key={sIdx} className="px-4 py-3 text-center whitespace-nowrap">
+                                    <div className="flex flex-col items-center">
+                                      <span className={`font-bold ${score > 0 ? 'text-emerald-600' : score < 0 ? 'text-rose-600' : 'text-gray-400'}`}>
+                                        {score > 0 ? `+${score}` : score}
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 mt-0.5">
+                                        {lang === 'zh' ? '累計' : 'Cum'}: {cum > 0 ? `+${cum}` : cum}
+                                      </span>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Final Settlement Section */}
