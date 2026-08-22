@@ -45,7 +45,7 @@ const translations = {
     action: '動作',
     selfDrawn: '自摸 (+2)',
     kong: '槓',
-    birds: '中碼數量',
+    birds: '摸碼',
     redZhongDouble: '飛紅中數量',
     kongType: '槓類型',
     kongDark: '暗槓 (+2 全收)',
@@ -101,7 +101,7 @@ const translations = {
     action: 'Action',
     selfDrawn: 'Self-Drawn (+2)',
     kong: 'Kong',
-    birds: 'Birds Hit',
+    birds: 'Birds Drawn',
     redZhongDouble: 'Red Zhongs',
     kongType: 'Kong Type',
     kongDark: 'Dark (+2 each)',
@@ -937,6 +937,29 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                {/* Birds Drawn */}
+                {rzAction === 'win' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-bold text-gray-400 uppercase tracking-wider">{t.birds}</label>
+                      <span className="min-w-9 rounded-full bg-amber-100 px-3 py-1 text-center text-sm font-bold text-amber-700">{rzBirds}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="8"
+                      step="1"
+                      value={rzBirds}
+                      onChange={(e) => setRzBirds(Number(e.target.value))}
+                      className="w-full accent-amber-500"
+                      aria-label={t.birds}
+                    />
+                    <div className="flex justify-between px-0.5 text-xs font-medium text-gray-400">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((count) => <span key={count}>{count}</span>)}
+                    </div>
+                  </div>
+                )}
 
                 {/* Red Zhong Counts for each player */}
                 <div className="space-y-2">
