@@ -946,7 +946,7 @@ export default function App() {
                       <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
                         <span className="text-xs font-bold text-gray-600 truncate mr-2">{p.name}</span>
                         <div className="flex gap-1">
-                          {[0, 1, 2].map((count) => (
+                          {[0, 1, 2, 3, 4].map((count) => (
                             <button
                               key={count}
                               onClick={() => {
